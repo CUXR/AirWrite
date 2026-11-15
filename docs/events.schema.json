@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AirWrite transcript event",
+  "description": "Application-defined events relayed over local WebSocket to the RayNeo HUD. The HUD ignores stale seq numbers within a session and resets when session_id changes.",
+  "type": "object",
+  "required": ["type", "session_id", "seq", "text", "is_final", "timestamp_ms"],
+  "properties": {
+    "type": { "enum": ["transcript.update", "transcript.commit", "translation.update"] },
+    "session_id": { "type": "string" },
+    "seq": { "type": "integer", "minimum": 0 },
+    "text": { "type": "string" },
+    "is_final": { "type": "boolean" },
+    "timestamp_ms": { "type": "integer" },
+    "source": { "enum": ["live", "recorded_inference", "replay", "mock"], "description": "Provenance: always shown so a demo is never mislabeled as live." }
+  },
+  "additionalProperties": false
+}
