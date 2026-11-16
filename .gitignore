@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Data: never commit raw sessions, identifiers, or credentials
+data/raw/
+band/recordings/
+data/private/
+*.env
+.env*
+secrets/
+*.key
+*.pem
+
+# Models / large artifacts
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Android / Kotlin / Gradle
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+captures/
+
+# Rust
+target/
