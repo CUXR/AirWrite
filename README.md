@@ -214,16 +214,101 @@ python -m dashboard.server
 
 Open `http://localhost:8765`, find the band, and select its sEMG mode. This establishes a **raw-signal connectivity baseline** only.
 
-### RayNeo application smoke test
+### RayNeo glasses development in Android Studio
 
-Use [RayNeo Open Platform](https://open.rayneo.com/) and the [RayNeo X3 Pro development guide](https://www.qualcomm.com/developer/project/get-started-with-rayneo-x3-pro-ar-development) for the SDK, firmware-specific setup, and ADB instructions. Once debugging is enabled and the app is built:
+Download the **SDK** and matching **sample** from the official [RayNeo X-series Android ARDK download page](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk/ardk-download). Follow the [Android SDK Quick Start](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk/quick-start) for release-specific requirements. The SDK is supplied as an Android library (`.aar`) that you add to your app module.
+
+The paths below are relative to your **Android project root**. This repository does not yet contain an Android Gradle project; `glasses/android-app/` above is the proposed location.
+
+#### 1. Open the sample or create a project
+
+- **First hardware check:** Extract the sample, then use **File → Open** in Android Studio and select its project root containing `settings.gradle` or `settings.gradle.kts`. Keep its Gradle wrapper and dependency versions for the initial build.
+- **New AirWrite app:** Create a **No Activity** project with **Kotlin**, following RayNeo's Quick Start. Use XML layouts and ViewBinding for the SDK's binocular UI. The guide uses Android Studio Otter 2 Feature Drop (2025.2.2) as its baseline.
+- In **Tools → SDK Manager**, install the Android SDK Platform and Build Tools required by the project's Gradle configuration, plus **Android SDK Platform-Tools** for ADB. If sync fails because of toolchain versions, consult RayNeo's [Android Studio compatibility reference](https://rayneo-en.gitbook.io/rayneo-devdoc/faq/faq/android-studio-version-compatibility-quick-reference).
+
+#### 2. Add the SDK to the app module
+
+Extract the SDK download if it is an archive. Switch Android Studio's file pane to **Project**, create `app/libs/`, and copy the SDK `.aar` file there. Keep only the intended version of each library to avoid duplicate classes. For the sample, check its existing libraries and dependencies before adding anything.
+
+In the **module-level** `app/build.gradle.kts`, merge these entries into the existing blocks:
+
+```kotlin
+android {
+    buildFeatures {
+        viewBinding = true
+    }
+}
+
+dependencies {
+    implementation(fileTree("libs") { include("*.aar") })
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+}
+```
+
+The `libs.androidx.lifecycle.viewmodel.ktx` alias must exist in `gradle/libs.versions.toml`. If missing, add it using the Lifecycle version from the matching sample (replace the placeholder before syncing):
+
+```toml
+[versions]
+lifecycle = "<version from the matching sample>"
+
+[libraries]
+androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+```
+
+Merge entries into existing TOML sections rather than duplicating section headers. For a Groovy `app/build.gradle`, the AAR dependency is `implementation fileTree(dir: 'libs', include: ['*.aar'])`; enable `viewBinding = true` inside `android { buildFeatures { ... } }`. Then select **Sync Project with Gradle Files**.
+
+#### 3. Initialize the SDK and register the app
+
+Create `AirWriteApplication.kt` under your app's Kotlin package, keeping the appropriate `package` declaration:
+
+```kotlin
+import android.app.Application
+import com.ffalcon.mercury.android.sdk.MercurySDK
+
+class AirWriteApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        MercurySDK.init(this)
+    }
+}
+```
+
+In `app/src/main/AndroidManifest.xml`, set `android:name=".AirWriteApplication"` on the existing `<application>` element and add the metadata below inside it. This assumes the class is in the app's namespace package; otherwise use its fully qualified class name.
+
+```xml
+<meta-data
+    android:name="com.rayneo.mercury.app"
+    android:value="true" />
+```
+
+This metadata makes the app visible in the glasses launcher. If the project already has a custom `Application` class, initialize the SDK there and keep that class registered.
+
+#### 4. Build a binocular `HELLO` screen
+
+Use the matching sample's `BaseMirrorActivity` subclass as the template for `MainActivity`, with an XML layout containing a `TextView` displaying `HELLO` and its generated ViewBinding class. Register the activity in the manifest with the `MAIN` action, `LAUNCHER` category, and `android:exported="true"`.
+
+Follow RayNeo's [Binocular Display guide](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk/capabilities-and-api/binocular-display) for updating both lenses through `mBindingPair.updateView { ... }`. Keep transcript state changes and network operations outside that block because its UI updates execute for each eye.
+
+#### 5. Run on the X3 Pro
+
+Enable the glasses' ADB switch using RayNeo's [ADB instructions](https://rayneo-en.gitbook.io/rayneo-devdoc/faq/adb-debug/adb-command), connect a data-capable USB cable, and accept any debugging authorization prompt. Verify connectivity:
 
 ```bash
 adb devices
-adb install -r path/to/app-debug.apk
 ```
 
-Launch the installed app using the supported glasses launcher if needed; verify that text appears correctly on the device.
+The glasses should appear with status `device`. If `adb` is unavailable in your terminal, add the Android SDK's `platform-tools` directory to `PATH`. If the glasses are missing, follow RayNeo's [X3 Pro ADB troubleshooting](https://rayneo-en.gitbook.io/rayneo-devdoc/faq/faq/solution-for-x3pro-adb-not-being-recognized).
+
+Select the glasses in Android Studio's device selector and click **Run**. Alternatively, from the Android project root on macOS/Linux:
+
+```bash
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+On Windows, use `gradlew.bat assembleDebug`. Launch the installed app from the glasses launcher and check Android Studio's **Logcat** for startup errors.
+
+**Smoke-test acceptance:** `HELLO` is readable and correctly aligned on both physical lenses. Record the SDK version and glasses firmware used. These setup instructions have not yet been validated on our hardware.
 
 ### Prioritize this integration path
 
@@ -233,6 +318,8 @@ This order isolates display, networking, and band/ML failures. Avoid simultaneou
 
 ## References
 
+- [RayNeo Android ARDK — SDK and sample downloads](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk/ardk-download)
+- [RayNeo Android SDK — Quick Start](https://rayneo-en.gitbook.io/rayneo-devdoc/x-series/android-sdk/quick-start)
 - [RayNeo Open Platform — SDKs and device documentation](https://open.rayneo.com/)
 - [Qualcomm — Get Started with RayNeo X3 Pro AR Development](https://www.qualcomm.com/developer/project/get-started-with-rayneo-x3-pro-ar-development)
 - [beyondlevi/rokid-lumen — integrated Neural Band + third-party glasses implementation](https://github.com/beyondlevi/rokid-lumen)
